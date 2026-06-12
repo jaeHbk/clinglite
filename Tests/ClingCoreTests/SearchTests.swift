@@ -47,4 +47,38 @@ import Foundation
         let r = try buildReader([("/a/b.txt", false)])
         #expect(SearchEngine(reader: r).search("", maxResults: 10).isEmpty)
     }
+
+    @Test func dirSegmentFilterRestrictsToMatchingPaths() throws {
+        let r = try buildReader([
+            ("/Users/me/src/engine.swift", false),
+            ("/Users/me/test/engine.swift", false),
+            ("/Users/me/src/parser.swift", false),
+        ])
+        let eng = SearchEngine(reader: r)
+        // A bare dir-segment query (no fuzzy text) must keep ONLY paths containing "src/",
+        // not dump the whole index.
+        let hits = eng.search("src/", maxResults: 10)
+        #expect(Set(hits.map { $0.path }) == ["/users/me/src/engine.swift", "/users/me/src/parser.swift"])
+    }
+
+    @Test func dirSegmentCombinesWithFuzzy() throws {
+        let r = try buildReader([
+            ("/Users/me/src/engine.swift", false),
+            ("/Users/me/test/engine.swift", false),
+        ])
+        let eng = SearchEngine(reader: r)
+        let hits = eng.search("engine src/", maxResults: 10)
+        #expect(hits.map { $0.path } == ["/users/me/src/engine.swift"])
+    }
+
+    @Test func depthFilterRestrictsBySeparatorCount() throws {
+        let r = try buildReader([
+            ("/a/shallow.txt", false),       // 2 separators
+            ("/a/b/c/deep.txt", false),      // 4 separators
+        ])
+        let eng = SearchEngine(reader: r)
+        // depth:2 keeps only paths with <= 2 '/' separators.
+        let hits = eng.search(".txt depth:2", maxResults: 10)
+        #expect(hits.map { $0.path } == ["/a/shallow.txt"])
+    }
 }
