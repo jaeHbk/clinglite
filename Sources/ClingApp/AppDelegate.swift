@@ -31,12 +31,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menuBar.onSettings = { [weak self] in self?.openSettings() }
         menuBar.onQuit = { NSApp.terminate(nil) }
 
-        panel = SearchPanel(view: { [weak self] in
-            guard let self else { return AnyView(EmptyView()) }
-            return AnyView(SearchView(controller: self.controller,
-                                      onSubmit: { self.openSelected() },
-                                      onReveal: { self.revealSelected() }))
-        })
+        panel = SearchPanel(controller: controller,
+                            onSubmit: { [weak self] in self?.openSelected() },
+                            onReveal: { [weak self] in self?.revealSelected() })
         panel.onHide = { [weak self] in self?.coordinator.service.adviseDontNeedAll() }
 
         keyMonitor.onMove = { [weak self] d in self?.controller.moveSelection(d) }
