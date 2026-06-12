@@ -17,4 +17,22 @@ import Foundation
         let m = IgnoreMatcher(text: "# comment\n\n*.tmp\n")
         #expect(m.isIgnored(name: "a.tmp", isDir: false))
     }
+
+    @Test func walkerEnumeratesTree() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("walk-\(UUID().uuidString)")
+        let fm = FileManager.default
+        try fm.createDirectory(at: root.appendingPathComponent("sub"), withIntermediateDirectories: true)
+        try "x".write(to: root.appendingPathComponent("a.txt"), atomically: true, encoding: .utf8)
+        try "y".write(to: root.appendingPathComponent("sub/b.swift"), atomically: true, encoding: .utf8)
+        try "z".write(to: root.appendingPathComponent("ignore.log"), atomically: true, encoding: .utf8)
+
+        var found = [String]()
+        let walker = FileWalker(ignore: IgnoreMatcher(patterns: ["*.log"]))
+        walker.walk(root: root.path) { entry in found.append(entry.path) }
+
+        #expect(found.contains { $0.hasSuffix("/a.txt") })
+        #expect(found.contains { $0.hasSuffix("/sub/b.swift") })
+        #expect(!found.contains { $0.hasSuffix("ignore.log") })
+        try? fm.removeItem(at: root)
+    }
 }
