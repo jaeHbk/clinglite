@@ -18,21 +18,35 @@ Measured by the OS (`/usr/bin/time -l`), real filesystem (~/Documents, 151,749 f
 | **Search** (151K-file index) | **23.4 MB** | ~45× smaller |
 | **Index build** (151K files) | **100.4 MB** | — |
 
-Synthetic 2M-file proof harness (release): **164 MB total process footprint, 64 ms
+Synthetic 2M-file proof harness (release): **77 MB total process footprint, ~80 ms
 avg search**. The mmap-in-place design means only touched pages fault in; the rest
-stays OS-evictable. The `<500MB` ceiling holds with enormous headroom.
+stays OS-evictable. The `<500MB` ceiling holds with enormous headroom. Even a
+pathological all-match query (every basename matches) stays bounded and adds only
+~128 MB on top of the base.
 
 ### Speed
 
 - 151K-file `~/Documents` indexed in **6.3 s**.
-- Search over that index: **~40 ms** process-inclusive (mmap + parallel filter+score
+- Search over that index: **~18 ms** process-inclusive (mmap + parallel filter+score
   + print); the search itself is sub-millisecond.
-- Sub-100 ms on the 2M-file synthetic index.
+- 70–90 ms on the 2M-file synthetic index (release).
+
+### Search semantics (matches upstream Cling)
+
+Fuzzy tokens match against the **basename** (the filename), so files *named* for the
+query rank above incidental directory-path matches — e.g. `report` returns
+`reporter.rs` / `report.md`, not `node_modules/.../istanbul-lib-report/...`. Directory
+scoping is expressed explicitly via `in:<path>` and `seg/` tokens. This is also what
+keeps broad queries fast: basenames are short, so the letter-mask prefilter is highly
+selective.
 
 ### Tests
 
-35 tests across 10 suites, green in both debug and release (`./scripts/test.sh`
+40 tests across 10 suites, green in both debug and release (`./scripts/test.sh`
 and `./scripts/test.sh -c release`). Built with Command Line Tools only — no Xcode.
+Includes regression tests for every issue found in the whole-implementation review
+(corrupt-index safety, best-match survival on broad queries, unknown-extension
+filtering, bounded pathological queries).
 
 ### What works (CLI)
 
@@ -46,10 +60,6 @@ directory-segment filters, and `depth:<n>` all functional.
 
 ## Known follow-ups (Phase 2)
 
-- **Ranking polish:** deeply-nested `node_modules` paths can outrank obvious
-  top-level matches for some queries. The scorer is ported faithfully but the
-  composite rank tuning (importance/prefix/depth weighting) from upstream is only
-  partially applied. Quality tuning, not a correctness/memory issue.
 - **Streaming IndexWriter:** the writer assembles the whole file in a heap `Data`
   buffer (transient peak ~306 MB at 2M entries). Fine through a few million files;
   stream to a `FileHandle` for 9M+.
