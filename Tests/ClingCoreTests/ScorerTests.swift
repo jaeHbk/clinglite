@@ -39,4 +39,21 @@ import Testing
     @Test func consecutiveBeatsGapped() {
         #expect(score("abc", "abc")! > score("abc", "axbxc")!)
     }
+
+    @Test func boundaryBitsRaiseScore() {
+        // Same lowercased text and pattern; the only difference is whether we tell the scorer
+        // that the matched 'w'/'r' positions are word boundaries. The boundary bonus must
+        // raise the score for those matched characters.
+        let txt = Array("midweekreport".utf8)
+        let pat = Array("mwr".utf8)  // matches at m(0) w(3) r(7) in "midweekreport"
+        let withoutBits: Int = pat.withUnsafeBufferPointer { pb in
+            txt.withUnsafeBufferPointer { tb in fuzzyScoreBytes(pb, tb, boundaries: 0, boundariesOffset: 0)!.score }
+        }
+        // Mark the matched positions 3 ('w') and 7 ('r') as boundaries.
+        let bits: UInt64 = (1 << 3) | (1 << 7)
+        let withBits: Int = pat.withUnsafeBufferPointer { pb in
+            txt.withUnsafeBufferPointer { tb in fuzzyScoreBytes(pb, tb, boundaries: bits, boundariesOffset: 0)!.score }
+        }
+        #expect(withBits > withoutBits)
+    }
 }

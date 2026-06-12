@@ -3,6 +3,9 @@ import Foundation
 @inline(__always) func toLowerByte(_ b: UInt8) -> UInt8 { (b >= 0x41 && b <= 0x5A) ? b &+ 32 : b }
 
 /// fzf-style alignment scorer over raw bytes. Returns best (score, start, end) or nil if no match.
+/// Precondition: both `pat` and `txt` must already be lowercased ASCII — the anchor scan is
+/// byte-exact, so mixed-case input silently fails to match. (The pipeline guarantees this:
+/// ParsedQuery lowercases the query and the index blob stores lowercased path bytes.)
 /// `boundaries`/`boundariesOffset` carry precomputed camelCase/delimiter boundary bits for the
 /// text region so bonuses survive lowercasing.
 func fuzzyScoreBytes(
