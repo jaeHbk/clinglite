@@ -36,6 +36,25 @@ import Foundation
         try? fm.removeItem(at: root)
     }
 
+    @Test func walkerPrunesIgnoredDirectorySubtree() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("prune-\(UUID().uuidString)")
+        let fm = FileManager.default
+        try fm.createDirectory(at: root.appendingPathComponent("node_modules/pkg/deep"), withIntermediateDirectories: true)
+        try fm.createDirectory(at: root.appendingPathComponent("src"), withIntermediateDirectories: true)
+        try "a".write(to: root.appendingPathComponent("node_modules/pkg/deep/buried.js"), atomically: true, encoding: .utf8)
+        try "b".write(to: root.appendingPathComponent("src/keep.swift"), atomically: true, encoding: .utf8)
+
+        var found = [String]()
+        let walker = FileWalker(ignore: IgnoreMatcher(patterns: ["node_modules/"]))
+        walker.walk(root: root.path) { entry in found.append(entry.path) }
+
+        // The ignored directory AND its entire subtree must be absent.
+        #expect(!found.contains { $0.contains("/node_modules") })
+        // Siblings outside the pruned subtree are still indexed.
+        #expect(found.contains { $0.hasSuffix("/src/keep.swift") })
+        try? fm.removeItem(at: root)
+    }
+
     @Test func indexerEndToEnd() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("idx-\(UUID().uuidString)")
         let fm = FileManager.default
