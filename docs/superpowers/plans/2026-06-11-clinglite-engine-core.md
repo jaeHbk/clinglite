@@ -10,6 +10,14 @@
 
 > **Spec-refinement note (flag to user at handoff):** The spec §6 said "keep swift-ignore" and "keep swift-argument-parser". Plan A deliberately implements a minimal first-party `IgnoreMatcher` and hand-rolls CLI parsing so the engine core has **zero external dependencies** — maximally lightweight and hermetic (no network clones at build). swift-ignore / swift-argument-parser remain optional swaps if richer behavior is needed later.
 
+> **⚠️ TESTING CONVENTION — READ FIRST (toolchain reality, overrides the test code blocks below):**
+> Command Line Tools (no Xcode) **does not ship XCTest** (`import XCTest` → "no such module"). All test code in the tasks below is written in XCTest style for readability, but you MUST implement tests using **swift-testing** instead. Translate mechanically:
+> - `import XCTest` → `import Testing`
+> - `final class FooTests: XCTestCase { func testBar() {...} }` → `@Suite struct FooTests { @Test func bar() {...} }` (a throwing test: `@Test func bar() throws {...}`)
+> - `XCTAssertEqual(a, b)` → `#expect(a == b)`; `XCTAssertNil(x)` → `#expect(x == nil)`; `XCTAssertNotNil`/unwrap → `let v = try #require(x)`; `XCTAssertGreaterThan(a, b)` → `#expect(a > b)`; `XCTAssertLessThan(a, b)` → `#expect(a < b)`; `XCTAssertLessThanOrEqual` → `#expect(a <= b)`; `XCTAssertGreaterThanOrEqual` → `#expect(a >= b)`; `XCTAssertTrue(x)` → `#expect(x)`; `XCTAssertFalse(x)` → `#expect(!x)`; the optional message arg becomes a trailing string in `#expect(cond, "msg")` only where supported, else drop it.
+> - "append to the existing test file" → add `@Test` methods inside the existing `@Suite struct`.
+> Run tests with the committed wrapper **`./scripts/test.sh [-c release] [FilterName]`** (it injects the CLT Testing.framework search/rpath/DYLD paths that plain `swift test` omits). Replace every `swift test --filter X` step with `./scripts/test.sh X`, and `swift test` with `./scripts/test.sh`. The fail-first → pass verification discipline still applies.
+
 ---
 
 ## File Structure
@@ -74,7 +82,7 @@ import PackageDescription
 
 let package = Package(
     name: "ClingLite",
-    platforms: [.macOS(.v13)],
+    platforms: [.macOS(.v14)], // v14: CLT Testing.framework is built for macOS 14; avoids linker version warning
     products: [
         .library(name: "ClingCore", targets: ["ClingCore"]),
         .executable(name: "cling", targets: ["cling"]),
