@@ -36,11 +36,28 @@ panel), Carbon `HotKey`, `FSWatcher`, `IndexCoordinator`, `MenuBarController`,
   windows are verified by the user running `ClingLite.app`; the offscreen render is the
   authoritative programmatic gate.
 
+### Usability pass (post-launch fixes) — ✅
+
+Three issues found by running the real app were root-caused and fixed:
+1. **Autofocus** — the search field now takes keyboard focus on show (no click needed):
+   `@FocusState` + `.focused()` driven by a focus tick the panel bumps each show.
+2. **Results visible** — the live panel now **resizes to fit results** (was stuck at the
+   search-bar height, clipping everything). `PanelLayout` is the single source of truth
+   used by both the live window and the render harness, so they can't diverge again.
+3. **Rich UI** — search bar + results list + **preview pane** (QuickLook thumbnail +
+   Kind/Size/Modified/Where) + **hotkey footer** (Open / Reveal / Quick Look / Copy Path
+   / Navigate / Close), matching the original's layout.
+
+Added a `--ui-selftest` mode that drives the **real** `SearchPanel` and asserts on the
+**live window** (height grew, rows present, field focused) — the verification the
+original offscreen-only check lacked. Real app steady-state ~41 MB; preview shows real
+QuickLook thumbnails. 72 tests / 19 suites green debug + release.
+
 ### Phase C (deferred)
 
-Real QuickLook preview panel (B2 maps Quick Look to reveal), live hotkey re-binding UI,
-scripts engine, drag-to-zone accessibility grid, in-app syntax-highlighted code preview,
-quick-filters management, onboarding wizard.
+Full QuickLook *panel* (Space-to-peek; the inline preview pane already shows thumbnails),
+live hotkey re-binding UI, scripts engine, drag-to-zone accessibility grid, in-app
+syntax-highlighted code preview, quick-filters management, onboarding wizard.
 
 ---
 
