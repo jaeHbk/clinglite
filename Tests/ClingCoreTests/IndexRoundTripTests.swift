@@ -17,4 +17,23 @@ import Foundation
         #expect(!IndexFormat.isDir(g))
         #expect(IndexFormat.segCount(g) == 127)
     }
+
+    @Test func writerProducesValidHeader() throws {
+        let entries = [
+            RawEntry(path: "/Users/me/Documents/report.pdf", isDir: false),
+            RawEntry(path: "/Users/me/Pictures", isDir: true),
+            RawEntry(path: "/Users/me/Code/main.swift", isDir: false),
+        ]
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("t1.idx")
+        try? FileManager.default.removeItem(at: url)
+        try IndexWriter.write(entries: entries, to: url)
+
+        let data = try Data(contentsOf: url)
+        #expect(data.count > IndexFormat.headerSize)
+        let magic = data.withUnsafeBytes { $0.loadUnaligned(fromByteOffset: 0, as: UInt64.self) }
+        #expect(magic == IndexFormat.magic)
+        let count = data.withUnsafeBytes { $0.loadUnaligned(fromByteOffset: 16, as: UInt64.self) }
+        #expect(count == 3)
+        try? FileManager.default.removeItem(at: url)
+    }
 }
