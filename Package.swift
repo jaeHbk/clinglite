@@ -7,6 +7,7 @@ let package = Package(
     products: [
         .library(name: "ClingCore", targets: ["ClingCore"]),
         .executable(name: "cling", targets: ["cling"]),
+        .executable(name: "ClingApp", targets: ["ClingApp"]),
     ],
     targets: [
         .target(
@@ -14,6 +15,8 @@ let package = Package(
             swiftSettings: [.unsafeFlags(["-Ounchecked"], .when(configuration: .release))]
         ),
         .executableTarget(name: "cling", dependencies: ["ClingCore"]),
+        .executableTarget(name: "ClingApp", dependencies: ["ClingCore"]),
         .testTarget(name: "ClingCoreTests", dependencies: ["ClingCore"]),
+        .testTarget(name: "ClingAppTests", dependencies: ["ClingApp", "ClingCore"]),
     ]
 )
