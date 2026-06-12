@@ -7,3 +7,5 @@ DerivedData/
 *.o
 *.swiftmodule
 .swiftpm/
+*.png
+/ClingLite.app

@@ -4,6 +4,46 @@ A memory-optimized reimplementation of [Cling](https://github.com/FuzzyIdeas/Cli
 (macOS instant fuzzy file finder). Goal: identical fast fuzzy search, **<500MB memory
 no matter what**, no Xcode required, no paywall/telemetry.
 
+## Plan B (GUI app) — ✅ COMPLETE & VERIFIED
+
+A polished menu-bar agent (`ClingLite.app`, `LSUIElement`) summoned by a global hotkey
+(⌥Space) as a borderless Spotlight-style panel, with live fuzzy results as you type,
+keyboard nav, core file actions (Open / Reveal / Copy file / Copy path), background
+indexing + FSEvents live updates, and a settings window. Built with Command Line Tools
+only — no Xcode. Run `scripts/build-app.sh` to produce `ClingLite.app`.
+
+**B1 — ClingCore orchestration** (headless, unit-tested): cached-delta `LiveIndex`,
+`fuzzyHighlightRanges`, persistent per-root `IndexStore` (+ JSON manifest), multi-root
+`SearchService`.
+
+**B2 — ClingApp GUI**: `SearchController` (60 ms debounce, off-main, stale-discard),
+`SearchView`/`RowView` (highlighted matches), `KeyablePanel` (focusable borderless
+panel), Carbon `HotKey`, `FSWatcher`, `IndexCoordinator`, `MenuBarController`,
+`SettingsView`, `PathResolver` (recovers true-case on-disk path from the lowercased index).
+
+### Verified (real, OS-measured)
+
+- **GUI render** (authoritative offscreen `NSHostingView`→PNG of the real `SearchView`
+  via the real search path): renders the panel + highlighted `engine.swift` result row
+  correctly in both debug and the shipping release binary.
+- **Real `.app`**: launches as a menu-bar agent at **~38 MB idle**, **~117 MB peak**
+  while background-indexing all of `$HOME` (1,072,733 files in ~47 s), **~55 MB on
+  relaunch** from the cached index. Persistent index + manifest under
+  `~/Library/Application Support/ClingLite/` confirmed; relaunch reuses it (instant start).
+- **66 tests / 17 suites** green in debug + release. Memory-ceiling harness still holds
+  (2 M files → 80 MB, 74 ms).
+- `screencapture` of live windows is blocked in the build/automation context, so live
+  windows are verified by the user running `ClingLite.app`; the offscreen render is the
+  authoritative programmatic gate.
+
+### Phase C (deferred)
+
+Real QuickLook preview panel (B2 maps Quick Look to reveal), live hotkey re-binding UI,
+scripts engine, drag-to-zone accessibility grid, in-app syntax-highlighted code preview,
+quick-filters management, onboarding wizard.
+
+---
+
 ## Plan A (engine core) — ✅ COMPLETE & VERIFIED
 
 The headless, fully-tested heart: fuzzy scorer, memory-mapped structure-of-arrays
