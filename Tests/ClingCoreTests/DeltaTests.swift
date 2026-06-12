@@ -20,4 +20,32 @@ import Foundation
         #expect(hits.contains { $0.hasSuffix("keep.swift") })
         #expect(!hits.contains("/a/old.swift"))       // tombstoned base entry hidden
     }
+
+    @Test func deltaReaderNotRebuiltWhenUnchanged() throws {
+        let r = try reader(["/a/keep.swift"])
+        let live = LiveIndex(base: r)
+        live.add(RawEntry(path: "/a/new1.swift", isDir: false))
+        _ = live.search("swift", maxResults: 10)
+        let after1 = live.deltaRebuildCount
+        // Searching again WITHOUT mutating the delta must not rebuild the delta index.
+        _ = live.search("swift", maxResults: 10)
+        _ = live.search("new", maxResults: 10)
+        #expect(live.deltaRebuildCount == after1)
+        // Mutating the delta marks it dirty; the next search rebuilds exactly once.
+        live.add(RawEntry(path: "/a/new2.swift", isDir: false))
+        _ = live.search("swift", maxResults: 10)
+        #expect(live.deltaRebuildCount == after1 + 1)
+    }
+
+    @Test func cachedDeltaStillReturnsCorrectResults() throws {
+        let r = try reader(["/a/old.swift", "/a/keep.swift"])
+        let live = LiveIndex(base: r)
+        live.add(RawEntry(path: "/a/brandnew.swift", isDir: false))
+        live.remove(path: "/a/old.swift")
+        _ = live.search("swift", maxResults: 10) // warm the cache
+        let hits = live.search("swift", maxResults: 10).map { $0.path } // served from cache
+        #expect(hits.contains("/a/brandnew.swift"))
+        #expect(hits.contains { $0.hasSuffix("keep.swift") })
+        #expect(!hits.contains("/a/old.swift"))
+    }
 }
