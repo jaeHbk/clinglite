@@ -31,21 +31,42 @@ public final class IndexReader {
         let size = Int(st.st_size)
         if size < IndexFormat.headerSize { throw IndexError.truncated }
         guard let p = mmap(nil, size, PROT_READ, MAP_PRIVATE, fd, 0), p != MAP_FAILED else { throw IndexError.open }
-        let base = UnsafeRawPointer(p)
-        self.base = base
-        self.byteCount = size
 
+        // All work below uses the local `base`/`p`. Stored properties are assigned only after
+        // every validation passes — so any `throw` here leaves the object NOT fully initialized,
+        // which means `deinit` will NOT run. Each failure path therefore calls `munmap(p, size)`
+        // exactly once and is the sole unmap (a double-munmap would crash the process).
+        let base = UnsafeRawPointer(p)
+        func fail(_ e: IndexError) -> IndexError { munmap(p, size); return e }
         func u64(_ o: Int) -> UInt64 { base.loadUnaligned(fromByteOffset: o, as: UInt64.self) }
         func u32(_ o: Int) -> UInt32 { base.loadUnaligned(fromByteOffset: o, as: UInt32.self) }
-        if u64(IndexFormat.offMagic) != IndexFormat.magic { munmap(p, size); throw IndexError.badMagic }
-        if u32(IndexFormat.offVersion) != IndexFormat.version { munmap(p, size); throw IndexError.badVersion }
-
-        self.count = Int(u64(IndexFormat.offEntryCount))
-        self.blobBytes = Int(u64(IndexFormat.offBlobBytes))
+        if u64(IndexFormat.offMagic) != IndexFormat.magic { throw fail(.badMagic) }
+        if u32(IndexFormat.offVersion) != IndexFormat.version { throw fail(.badVersion) }
 
         func col<T>(_ offField: Int, _ : T.Type) -> UnsafePointer<T> {
             (base + Int(u64(offField))).assumingMemoryBound(to: T.self)
         }
+
+        // Parse ext table into a dict for query-time resolution. Bounds-check every read
+        // against the mapping size so a truncated/corrupt file throws rather than faulting.
+        var o = Int(u64(IndexFormat.offExtTableOff))
+        guard o >= 0, o + 4 <= size else { throw fail(.truncated) }
+        let extCount = Int(base.loadUnaligned(fromByteOffset: o, as: UInt32.self)); o += 4
+        var dict = [String: UInt16]()
+        for id in 0 ..< extCount {
+            guard o + 1 <= size else { throw fail(.truncated) }
+            let len = Int((base + o).load(as: UInt8.self)); o += 1
+            guard o + len <= size else { throw fail(.truncated) }
+            let s = String(decoding: UnsafeBufferPointer(start: (base + o).assumingMemoryBound(to: UInt8.self), count: len), as: UTF8.self)
+            o += len
+            dict[s] = UInt16(id + 1)
+        }
+
+        // Validation complete — commit all stored properties. No `throw` past this point.
+        self.base = base
+        self.byteCount = size
+        self.count = Int(u64(IndexFormat.offEntryCount))
+        self.blobBytes = Int(u64(IndexFormat.offBlobBytes))
         self.masks = col(IndexFormat.offMasksOff, UInt64.self)
         self.bnMasks = col(IndexFormat.offBnMasksOff, UInt64.self)
         self.bnBoundaries = col(IndexFormat.offBnBoundsOff, UInt64.self)
@@ -55,17 +76,6 @@ public final class IndexReader {
         self.extIDs = col(IndexFormat.offExtIDsOff, UInt16.self)
         self.flags = col(IndexFormat.offFlagsOff, UInt8.self)
         self.blob = col(IndexFormat.offBlobOff, UInt8.self)
-
-        // Parse ext table into a dict for query-time resolution.
-        var o = Int(u64(IndexFormat.offExtTableOff))
-        let extCount = Int(base.loadUnaligned(fromByteOffset: o, as: UInt32.self)); o += 4
-        var dict = [String: UInt16]()
-        for id in 0 ..< extCount {
-            let len = Int((base + o).load(as: UInt8.self)); o += 1
-            let s = String(decoding: UnsafeBufferPointer(start: (base + o).assumingMemoryBound(to: UInt8.self), count: len), as: UTF8.self)
-            o += len
-            dict[s] = UInt16(id + 1)
-        }
         self.extDict = dict
     }
 

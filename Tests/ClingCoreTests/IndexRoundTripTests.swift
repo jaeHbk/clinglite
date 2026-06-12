@@ -58,4 +58,23 @@ import Foundation
         #expect(r.extID(forExtension: "pdf") == r.extIDs[0])
         try? FileManager.default.removeItem(at: url)
     }
+
+    @Test func truncatedFileThrows() throws {
+        // A valid index truncated mid-ext-table must throw .truncated, not fault.
+        let entries = [RawEntry(path: "/a/b.pdf", isDir: false)]
+        let full = FileManager.default.temporaryDirectory.appendingPathComponent("t3-full.idx")
+        try? FileManager.default.removeItem(at: full)
+        try IndexWriter.write(entries: entries, to: full)
+
+        // Keep the 128-byte header (so magic/version validate) but lop off the columns/blob/ext table.
+        let data = try Data(contentsOf: full)
+        let truncated = data.prefix(IndexFormat.headerSize + 8)
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("t3-trunc.idx")
+        try? FileManager.default.removeItem(at: url)
+        try truncated.write(to: url)
+
+        #expect(throws: IndexError.self) { _ = try IndexReader(url: url) }
+        try? FileManager.default.removeItem(at: full)
+        try? FileManager.default.removeItem(at: url)
+    }
 }

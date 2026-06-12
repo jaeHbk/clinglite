@@ -67,8 +67,12 @@ public enum IndexWriter {
             if let dot = lc[bn...].lastIndex(of: 0x2E), dot + 1 < lc.count {
                 let ext = String(decoding: lc[(dot + 1)...], as: UTF8.self)
                 if let id = extToID[ext] { extID = id }
-                else {
-                    let id = UInt16(extList.count + 1) // 0 reserved for "no ext"
+                // Intern up to 65_534 distinct extensions (ids 1...65_534; 0 = "no ext").
+                // Past that ceiling, leave extID = 0 rather than trap — extension filtering
+                // simply won't match these rare overflow extensions. Real filesystems have
+                // a few thousand distinct extensions, so this cap is never reached in practice.
+                else if extList.count < Int(UInt16.max) - 1 {
+                    let id = UInt16(extList.count + 1)
                     extToID[ext] = id; extList.append(ext); extID = id
                 }
             }
