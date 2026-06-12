@@ -53,4 +53,12 @@ public final class SearchController: ObservableObject {
     public var selectedRow: RowModel? {
         rows.indices.contains(selection) ? rows[selection] : nil
     }
+
+    /// Test/render hook: set rows directly without going through the async search path.
+    public func setRowsForRender(_ rows: [RowModel], query: String) {
+        self.query = query
+        self.pending?.cancel()
+        self.rows = rows
+        self.selection = 0
+    }
 }
