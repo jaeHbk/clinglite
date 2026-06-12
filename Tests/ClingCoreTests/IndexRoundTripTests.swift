@@ -36,4 +36,26 @@ import Foundation
         #expect(count == 3)
         try? FileManager.default.removeItem(at: url)
     }
+
+    @Test func readerRoundTrip() throws {
+        let entries = [
+            RawEntry(path: "/Users/me/Documents/report.pdf", isDir: false),
+            RawEntry(path: "/Users/me/Pictures", isDir: true),
+            RawEntry(path: "/Users/me/Code/Main.swift", isDir: false),
+        ]
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("t2.idx")
+        try? FileManager.default.removeItem(at: url)
+        try IndexWriter.write(entries: entries, to: url)
+
+        let r = try IndexReader(url: url)
+        #expect(r.count == 3)
+        #expect(r.path(2) == "/users/me/code/main.swift")        // blob is lowercased
+        #expect(IndexFormat.isDir(r.flags[1]))
+        // 'report.pdf' mask must contain letters r,p,t and '.'
+        let q = Array("rpt".utf8).withUnsafeBufferPointer { letterMaskBytes($0) }
+        #expect(r.masks[0] & q == q)
+        // ext resolution: "pdf" should resolve to the id stored on entry 0
+        #expect(r.extID(forExtension: "pdf") == r.extIDs[0])
+        try? FileManager.default.removeItem(at: url)
+    }
 }
