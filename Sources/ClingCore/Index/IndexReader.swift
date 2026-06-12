@@ -62,11 +62,37 @@ public final class IndexReader {
             dict[s] = UInt16(id + 1)
         }
 
+        // Validate every column offset+extent against the mapping size, so a corrupt or
+        // version-skewed file throws .truncated instead of handing out pointers past the
+        // mapping (which would SIGSEGV at query time, crashing the host process).
+        let entryCount = Int(u64(IndexFormat.offEntryCount))
+        let blobLen = Int(u64(IndexFormat.offBlobBytes))
+        guard entryCount >= 0, blobLen >= 0 else { throw fail(.truncated) }
+        func colOK(_ offField: Int, stride: Int) -> Bool {
+            let off = Int(u64(offField))
+            // off + entryCount*stride must be in-bounds and not overflow.
+            if off < IndexFormat.headerSize || off > size { return false }
+            let (bytes, ov1) = entryCount.multipliedReportingOverflow(by: stride)
+            if ov1 { return false }
+            let (end, ov2) = off.addingReportingOverflow(bytes)
+            return !ov2 && end <= size
+        }
+        guard colOK(IndexFormat.offMasksOff, stride: 8),
+              colOK(IndexFormat.offBnMasksOff, stride: 8),
+              colOK(IndexFormat.offBnBoundsOff, stride: 8),
+              colOK(IndexFormat.offPathOffOff, stride: 4),
+              colOK(IndexFormat.offPathLenOff, stride: 2),
+              colOK(IndexFormat.offBnStartOff, stride: 2),
+              colOK(IndexFormat.offExtIDsOff, stride: 2),
+              colOK(IndexFormat.offFlagsOff, stride: 1) else { throw fail(.truncated) }
+        let blobOff = Int(u64(IndexFormat.offBlobOff))
+        guard blobOff >= IndexFormat.headerSize, blobOff <= size, blobOff + blobLen <= size else { throw fail(.truncated) }
+
         // Validation complete — commit all stored properties. No `throw` past this point.
         self.base = base
         self.byteCount = size
-        self.count = Int(u64(IndexFormat.offEntryCount))
-        self.blobBytes = Int(u64(IndexFormat.offBlobBytes))
+        self.count = entryCount
+        self.blobBytes = blobLen
         self.masks = col(IndexFormat.offMasksOff, UInt64.self)
         self.bnMasks = col(IndexFormat.offBnMasksOff, UInt64.self)
         self.bnBoundaries = col(IndexFormat.offBnBoundsOff, UInt64.self)

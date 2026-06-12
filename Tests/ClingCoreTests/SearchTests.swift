@@ -81,4 +81,55 @@ import Foundation
         let hits = eng.search(".txt depth:2", maxResults: 10)
         #expect(hits.map { $0.path } == ["/a/shallow.txt"])
     }
+
+    // --- Regression tests for final-review findings ---
+
+    @Test func bestMatchSurvivesLargeBroadResultSet() throws {
+        // Build a large index where MANY entries match the query "file", and the single best
+        // (exact basename) match is placed LAST. A positional candidate cap would drop it;
+        // a score-based top-K must keep it.
+        var paths = [(String, Bool)]()
+        for i in 0 ..< 60_000 { paths.append(("/bulk/dir\(i)/profile_data_record.txt", false)) }
+        paths.append(("/data/file.txt", false)) // the exact, best match — last in index order
+        let r = try buildReader(paths)
+        let hits = SearchEngine(reader: r).search("file", maxResults: 10)
+        #expect(hits.contains { $0.path == "/data/file.txt" })
+        // It should also rank at or near the very top (tight basename match).
+        #expect(hits.first?.path == "/data/file.txt")
+    }
+
+    @Test func unknownExtensionMatchesNothing() throws {
+        // A queried extension that doesn't exist in the index must NOT match extension-less
+        // files (the 0 = "no extension" sentinel collision bug).
+        let r = try buildReader([
+            ("/abc_xyz/file", false),     // no extension; letters a,b,c pass the mask
+            ("/abc_xyz/note.txt", false),
+        ])
+        let hits = SearchEngine(reader: r).search(".abcxyz", maxResults: 10)
+        #expect(hits.isEmpty)
+    }
+
+    @Test func maxResultsZeroReturnsNothing() throws {
+        let r = try buildReader([("/a/file.txt", false)])
+        #expect(SearchEngine(reader: r).search("file", maxResults: 0).isEmpty)
+    }
+
+    @Test func corruptColumnOffsetThrowsInsteadOfCrashing() throws {
+        // An index whose path-offset column points past EOF must throw .truncated at open
+        // time, never hand out a wild pointer that SIGSEGVs the host process at query time.
+        let good = FileManager.default.temporaryDirectory.appendingPathComponent("good-\(UUID().uuidString).idx")
+        try IndexWriter.write(entries: [RawEntry(path: "/a/b.txt", isDir: false)], to: good)
+        var bytes = try Data(contentsOf: good)
+        // offPathOffOff (header field at byte 56) holds the pathOffset column's file offset.
+        // Overwrite it with a huge value well past the file end.
+        let bogus: UInt64 = 1 << 40
+        withUnsafeBytes(of: bogus) { raw in
+            for k in 0 ..< 8 { bytes[56 + k] = raw[k] }
+        }
+        let bad = FileManager.default.temporaryDirectory.appendingPathComponent("bad-\(UUID().uuidString).idx")
+        try bytes.write(to: bad)
+        #expect(throws: IndexError.self) { _ = try IndexReader(url: bad) }
+        try? FileManager.default.removeItem(at: good)
+        try? FileManager.default.removeItem(at: bad)
+    }
 }
