@@ -70,3 +70,13 @@ directory-segment filters, and `depth:<n>` all functional.
 The GUI (window, global hotkey, results list, file actions, preview, settings,
 onboarding, FSEvents wiring, `.app` bundle) wraps this verified `ClingCore` library.
 To be planned against the real ClingCore API now that Plan A is proven.
+
+## Plan B1 (ClingCore orchestration) — COMPLETE
+
+Headless additions wrapping the Plan A engine for the GUI:
+- Cached-delta `LiveIndex` (rebuild only on mutation, not per search)
+- `fuzzyHighlightRanges` for result bolding
+- Persistent per-root `IndexStore` (.idx + JSON manifest)
+- Multi-root `SearchService` (merge/dedup/rank, FS-change routing by longest prefix, base swap)
+
+56 tests / 13 suites green in debug + release. Still <500MB (2M-file harness: 78MB, 60ms).

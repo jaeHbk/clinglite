@@ -49,6 +49,18 @@ import Foundation
         #expect(svc.rootPaths == ["/r"])
     }
 
+    @Test func siblingPrefixRootIsNotMatched() throws {
+        // Root "/home" must NOT capture changes under sibling "/homework" (shared string prefix
+        // but a different directory). The change should be dropped (no matching root), so a
+        // search must not surface it.
+        let svc = SearchService()
+        svc.setRoot("/home", reader: try reader(["/home/keep.swift"]))
+        svc.applyChange(path: "/homework/essay.swift", exists: true, isDir: false)
+        let hits = svc.search("swift", maxResults: 10).map { $0.path }
+        #expect(hits == ["/home/keep.swift"])
+        #expect(!hits.contains { $0.contains("homework") })
+    }
+
     @Test func emptyServiceReturnsNothing() {
         #expect(SearchService().search("x", maxResults: 10).isEmpty)
     }

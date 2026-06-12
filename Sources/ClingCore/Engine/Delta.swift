@@ -12,6 +12,9 @@ public final class LiveIndex {
     private let lock = NSLock()
 
     // Cached delta index (rebuilt lazily when `deltaDirty`).
+    // `deltaReader` is retained only to keep the mmap alive for the lifetime of the cache;
+    // it is also held transitively by `deltaEngine` (which owns its reader), so it's never
+    // read directly — do not "remove unused" it.
     private var deltaReader: IndexReader?
     private var deltaEngine: SearchEngine?
     private var deltaURL: URL?

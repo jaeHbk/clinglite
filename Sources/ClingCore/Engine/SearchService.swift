@@ -58,8 +58,14 @@ public final class SearchService {
         lock.lock(); let all = order.compactMap { lives[$0] }; lock.unlock()
         if all.isEmpty { return [] }
 
+        // Over-fetch per root so the GLOBAL top-`maxResults` survives cross-root merge + dedup.
+        // If each root were capped at exactly maxResults, a result that ranks high globally but
+        // sits past a single root's cap could be lost; fetching a multiple keeps the merge exact
+        // in practice for a launcher's modest maxResults. Dedup is by path (paths are lowercased
+        // by the index, so this also collapses case-variant duplicates surfaced by sibling roots).
+        let perRoot = all.count > 1 ? maxResults * 2 : maxResults
         var hits = [SearchHit]()
-        for live in all { hits.append(contentsOf: live.search(query, maxResults: maxResults)) }
+        for live in all { hits.append(contentsOf: live.search(query, maxResults: perRoot)) }
         hits.sort { $0.score != $1.score ? $0.score > $1.score : $0.path < $1.path }
 
         var seen = Set<String>(); var out = [SearchHit]()
