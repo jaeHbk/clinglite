@@ -18,6 +18,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(config.showDockIcon ? .regular : .accessory)
+        EditMenu.install()   // standard Edit menu => ⌘A/⌘X/⌘V/⌘Z work in the search field
 
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("ClingLite", isDirectory: true)
