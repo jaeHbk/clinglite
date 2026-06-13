@@ -73,6 +73,14 @@ verification → synthesis), then implemented + verified:
 
 80 tests / 21 suites green debug + release; 2M harness holds (~101 MB, 64 ms).
 
+### Round 3c (Edit menu) — ✅
+
+The LSUIElement agent had no main menu, so macOS never routed standard text-editing
+shortcuts to the search field — **⌘A did nothing**. Added `EditMenu` (App + Edit menu:
+Undo/Redo, Cut, Copy, Paste, Delete, **Select All ⌘A**), installed at launch. Now ⌘A
+selects the whole query and Delete clears it; ⌘X/⌘V/⌘Z also work. ⌘C stays "copy result
+path" (the panel KeyMonitor owns it). 87 tests / 23 suites green.
+
 ### Phase C (deferred)
 
 Full QuickLook *panel* (Space-to-peek; the inline preview pane shows thumbnails + scrollable
