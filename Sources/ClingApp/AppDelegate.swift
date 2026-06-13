@@ -41,6 +41,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         keyMonitor.onReveal = { [weak self] in self?.revealSelected() }
         keyMonitor.onQuickLook = { [weak self] in self?.revealSelected() } // QL falls back to reveal in B2
         keyMonitor.onCopyPath = { [weak self] in if let p = self?.controller.selectedRow?.path { FileActions.copyPath(p) } }
+        keyMonitor.onOpenTerminal = { [weak self] in
+            guard let row = self?.controller.selectedRow else { return }
+            FileActions.openInTerminal(row.path, isDir: row.isDir)
+        }
+        keyMonitor.onRename = { [weak self] in self?.renameSelected() }
         keyMonitor.onEscape = { [weak self] in self?.panel.hide() }
         keyMonitor.start()
 
@@ -63,6 +68,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func revealSelected() {
         guard let row = controller.selectedRow else { return }
         FileActions.revealInFinder(row.path); panel.hide()
+    }
+    private func renameSelected() {
+        guard let row = controller.selectedRow else { return }
+        let oldPath = row.path
+        let oldIsDir = row.isDir
+        panel.hide()   // free the borderless panel's key focus before showing a modal
+        let alert = NSAlert()
+        alert.messageText = "Rename"
+        alert.informativeText = "Enter a new name for \"\(row.name)\"."
+        alert.addButton(withTitle: "Rename")
+        alert.addButton(withTitle: "Cancel")
+        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 300, height: 24))
+        field.stringValue = row.name
+        alert.accessoryView = field
+        NSApp.activate(ignoringOtherApps: true)
+        alert.window.initialFirstResponder = field
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        guard let newReal = FileActions.rename(indexPath: oldPath, to: field.stringValue) else {
+            let warn = NSAlert()
+            warn.messageText = "Rename failed"
+            warn.informativeText = "The name may be empty, contain a '/', or already exist."
+            warn.runModal()
+            return
+        }
+        // Reflect the change in the live index, then re-run the current query.
+        coordinator.service.applyChange(path: oldPath, exists: false, isDir: oldIsDir)
+        coordinator.service.applyChange(path: newReal, exists: true, isDir: oldIsDir)
+        controller.refresh()
     }
     private func reindexAll() {
         menuBar.rebuildMenu(status: "Indexing…")

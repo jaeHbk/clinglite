@@ -53,10 +53,30 @@ Added a `--ui-selftest` mode that drives the **real** `SearchPanel` and asserts 
 original offscreen-only check lacked. Real app steady-state ~41 MB; preview shows real
 QuickLook thumbnails. 72 tests / 19 suites green debug + release.
 
+### Round 3 (feedback pass) — ✅
+
+Investigated via a multi-agent workflow (4 parallel investigations → adversarial bug
+verification → synthesis), then implemented + verified:
+1. **Folder search** — folders matching a query now rank correctly. Root cause (verified
+   by 2 independent skeptics): `isDir`/exact-name played no role in scoring, so an
+   equal-scoring file with a shorter path buried the folder. Added a dir rank bonus
+   (+scoreMatch, breaks ties) + exact-basename bonus (+scoreMatch×4, decisive).
+2. **Preview metadata** — exactly four labeled rows: **Name, Path, Size, Date Modified**.
+3. **Bigger preview + scrollable PDF** — panel 720→860 wide, preview 300→400, min content
+   320→460; type-dispatched preview: `PDFPreview` (PDFKit `PDFView`, `.singlePageContinuous`
+   = scrollable, verified live: page 1 + scrollbar over a 3-page doc), large image, or
+   QuickLook thumbnail. (PDFView renders via a layer path that offscreen `cacheDisplay`
+   can't capture — verified live via a window-ID `screencapture` instead.)
+4. **Hotkeys** — **⌘T** opens the enclosing dir in Terminal.app; **⌘R** renames (NSAlert
+   accessory field → `FileActions.rename` → `applyChange` + `controller.refresh()`).
+   Footer now shows all 8 hints.
+
+80 tests / 21 suites green debug + release; 2M harness holds (~101 MB, 64 ms).
+
 ### Phase C (deferred)
 
-Full QuickLook *panel* (Space-to-peek; the inline preview pane already shows thumbnails),
-live hotkey re-binding UI, scripts engine, drag-to-zone accessibility grid, in-app
+Full QuickLook *panel* (Space-to-peek; the inline preview pane shows thumbnails + scrollable
+PDF), live hotkey re-binding UI, scripts engine, drag-to-zone accessibility grid, in-app
 syntax-highlighted code preview, quick-filters management, onboarding wizard.
 
 ---
