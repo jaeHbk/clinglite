@@ -117,6 +117,20 @@ public final class SearchEngine {
                         total += s
                     }
                     if !allMatched { continue }
+                    // Rank bonuses (data already in scope). isDir and exact-name matching otherwise
+                    // play NO role in scoring, so an equal-scoring FILE with a shorter path would
+                    // bury the FOLDER the user searched for. (a) a small directory bump only flips
+                    // genuine ties; (b) an exact full-basename match is the strongest "I meant THIS"
+                    // signal and wins decisively.
+                    if IndexFormat.isDir(r.flags[i]) { total += scoreMatch }
+                    if tokens.count == 1 {
+                        let tok = tokens[0]
+                        if tok.count == bnLen {
+                            var exact = true
+                            for k in 0 ..< bnLen where bnPtr[k] != tok[k] { exact = false; break }
+                            if exact { total += scoreMatch * 4 }
+                        }
+                    }
                     local.append(Scored(id: i, score: total))
                 } else {
                     // No fuzzy text: rank shallow paths first. Use negative byte-length as the

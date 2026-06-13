@@ -132,4 +132,26 @@ import Foundation
         try? FileManager.default.removeItem(at: good)
         try? FileManager.default.removeItem(at: bad)
     }
+
+    @Test func exactNameDirRanksAboveEqualScoringFile() throws {
+        // The reported bug: searching a folder name surfaced a file instead. With equal fuzzy
+        // scores, the FILE used to win on shorter path; the dir+exact-name bonuses must flip this.
+        let r = try buildReader([
+            ("/root/engine", false),            // FILE, shorter path
+            ("/root/deep/sub/engine", true),    // DIR, exact name, deeper path
+        ])
+        let hits = SearchEngine(reader: r).search("engine", maxResults: 10)
+        #expect(hits.first?.path == "/root/deep/sub/engine")  // the folder, not the file
+    }
+
+    @Test func dirBonusDoesNotOverrideBetterFuzzyFile() throws {
+        // Guard against over-correction: an EXACT-name FILE must still beat a weaker partial-match
+        // DIR. Query "eng": file "eng" is an exact basename; dir "engineering" is only a partial.
+        let r = try buildReader([
+            ("/p/eng", false),            // FILE, exact name "eng"
+            ("/p/engineering", true),     // DIR, partial match
+        ])
+        let hits = SearchEngine(reader: r).search("eng", maxResults: 10)
+        #expect(hits.first?.path == "/p/eng")  // exact file wins despite the dir bump
+    }
 }
