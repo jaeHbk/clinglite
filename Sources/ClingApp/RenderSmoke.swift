@@ -62,19 +62,22 @@ public enum RenderSmoke {
         panel.show()                                   // real show() path: focus tick + activate
         controller.query = query                       // real async debounced search
 
-        // Wait for debounce + async publish + the panel's onHeightChange resize to land.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+        // Wait for debounce + async publish + the panel's onHeightChange resize + async PDFKit
+        // page rendering to land (PDFView draws asynchronously, so give it real time).
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
             let rows = controller.rows.count
             let found = controller.rows.contains { $0.name.lowercased() == expectName.lowercased() }
             let grew = panel.windowHeight > PanelLayout.searchBarHeight + 1
             let focused = panel.fieldHasFocus
             // Capture the live window content to a PNG for visual confirmation.
             if let win = NSApp.windows.first(where: { $0.isVisible && $0.frame.width == PanelLayout.width }),
-               let content = win.contentView,
-               let rep = content.bitmapImageRepForCachingDisplay(in: content.bounds) {
-                content.cacheDisplay(in: content.bounds, to: rep)
-                if let data = rep.representation(using: .png, properties: [:]) {
-                    try? data.write(to: URL(fileURLWithPath: outPNG))
+               let content = win.contentView {
+                content.displayIfNeeded()              // force a synchronous draw before capture
+                if let rep = content.bitmapImageRepForCachingDisplay(in: content.bounds) {
+                    content.cacheDisplay(in: content.bounds, to: rep)
+                    if let data = rep.representation(using: .png, properties: [:]) {
+                        try? data.write(to: URL(fileURLWithPath: outPNG))
+                    }
                 }
             }
             let passed = found && grew && rows > 0
