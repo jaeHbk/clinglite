@@ -54,6 +54,10 @@ public final class SearchController: ObservableObject {
         rows.indices.contains(selection) ? rows[selection] : nil
     }
 
+    /// Re-run the current query (e.g. after a rename changed the index). Clean replacement for
+    /// toggling `query`; reuses the debounced off-main search path.
+    public func refresh() { scheduleSearch() }
+
     /// Test/render hook: set rows directly without going through the async search path.
     public func setRowsForRender(_ rows: [RowModel], query: String) {
         self.query = query

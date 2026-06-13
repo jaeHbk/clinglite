@@ -8,6 +8,8 @@ public final class KeyMonitor {
     public var onReveal: () -> Void = {}
     public var onQuickLook: () -> Void = {}
     public var onCopyPath: () -> Void = {}
+    public var onOpenTerminal: () -> Void = {}
+    public var onRename: () -> Void = {}
     public var onEscape: () -> Void = {}
 
     private var monitor: Any?
@@ -22,6 +24,8 @@ public final class KeyMonitor {
             case 36, 76:                            // return / keypad enter
                 if cmd { self.onReveal() } else { self.onOpen() }; return nil
             case 16 where cmd: self.onQuickLook(); return nil  // cmd-y -> quick look
+            case 17 where cmd: self.onOpenTerminal(); return nil  // cmd-t -> open dir in Terminal
+            case 15 where cmd: self.onRename(); return nil        // cmd-r -> rename
             case 53: self.onEscape(); return nil    // escape
             case 8 where cmd: self.onCopyPath(); return nil  // cmd-c
             default: return event

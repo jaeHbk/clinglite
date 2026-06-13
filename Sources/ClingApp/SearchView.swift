@@ -85,10 +85,12 @@ struct SearchView: View {
 /// Footer showing the key commands, mirroring the original Cling's hotkey hints.
 struct HotkeyFooter: View {
     var body: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: 11) {
             hint("↩", "Open")
             hint("⌘↩", "Reveal")
             hint("⌘Y", "Quick Look")
+            hint("⌘T", "Terminal")
+            hint("⌘R", "Rename")
             hint("⌘C", "Copy Path")
             hint("↑↓", "Navigate")
             hint("esc", "Close")
