@@ -38,7 +38,10 @@ public final class SearchController: ObservableObject {
             Task { @MainActor in
                 guard mySeq == self.seq else { return }  // discard stale results
                 self.rows = formatted
-                self.selection = formatted.isEmpty ? 0 : min(self.selection, formatted.count - 1)
+                // A newly-published result set always selects the top row, so the highlighted
+                // row and the preview match what the user is looking at. Selection only moves
+                // away from 0 via arrow keys (moveSelection), within the current result set.
+                self.selection = 0
             }
         }
         pending = item
