@@ -1,4 +1,4 @@
-# ClingLite
+# `ClingLite`
 
 A memory-optimized, native macOS **instant fuzzy file finder** — a Spotlight/Alfred-style
 search panel that finds files across your disk in milliseconds while staying lightweight.
