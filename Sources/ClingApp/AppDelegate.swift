@@ -57,7 +57,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         fsWatcher.start()
 
         // Kick a background refresh so the index is current shortly after launch.
+        Diag.log("[launch] reindexAll started for roots=\(config.roots)")
         coordinator.reindexAll(roots: config.roots) { [weak self] in
+            Diag.log("[reindex] base swap COMPLETE (index now fresh)")
             DispatchQueue.main.async { self?.menuBar.rebuildMenu(status: "Indexed \(self?.config.roots.count ?? 0) root(s)") }
         }
     }

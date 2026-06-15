@@ -42,6 +42,7 @@ public final class SearchController: ObservableObject {
                 // row and the preview match what the user is looking at. Selection only moves
                 // away from 0 via arrow keys (moveSelection), within the current result set.
                 self.selection = 0
+                Diag.log("[publish] q='\(q)' rows=\(formatted.count) top3=\(formatted.prefix(3).map { $0.name }) sel=0 selectedRow='\(self.selectedRow?.name ?? "nil")'")
             }
         }
         pending = item
